@@ -6,6 +6,7 @@ import glob
 # created by Richard Garsthagen - richard@oc-blog.com
 # Disclaimer: This is not an official Oracle Tool
 
+# Set to match your accounts currency, like USD or EUR
 currency = "EUR"
 
 files =  glob.glob("reports_cost-*.csv")
