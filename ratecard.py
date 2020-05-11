@@ -41,18 +41,21 @@ for file in files:
                 req = urllib.request.Request(listpriceurl, headers= hdr)
                 r = urllib.request.urlopen(req).read()
                 cont = json.loads(r.decode('utf-8'))
-                prices = cont["items"][0]["prices"]
-                PAYG = 0
-                MFLEX = 0
-                for p in prices:
-                    print (p)
-                    if float(p["value"]) != 0:
-                        if p["model"] == "PAY_AS_YOU_GO":
-                            PAYG = float(p["value"])
-                        if p["model"] == "MONTHLY_COMMIT":
-                            MFLEX = float(p["value"])
+                try:
+                    prices = cont["items"][0]["prices"]
+                    PAYG = 0
+                    MFLEX = 0
+                    for p in prices:
+                        print (p)
+                        if float(p["value"]) != 0:
+                            if p["model"] == "PAY_AS_YOU_GO":
+                                PAYG = float(p["value"])
+                            if p["model"] == "MONTHLY_COMMIT":
+                                MFLEX = float(p["value"])
 
-                rates.append([subscription, sku, service, description, unitcost, unitcostextra, PAYG, MFLEX])
+                    rates.append([subscription, sku, service, description, unitcost, unitcostextra, PAYG, MFLEX])
+                except:
+                    print ("ERROR sku {} nor found".format(sku))
         else:
             first = False
 
