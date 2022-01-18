@@ -1,70 +1,83 @@
-import urllib.request
-import json
-import glob
+import argparse
+import sys
+import requests, json
+import csv
 
-# OCI Ratecard
-# created by Richard Garsthagen - richard@oc-blog.com
-# Disclaimer: This is not an official Oracle Tool
+# Get Command Line Parser
+parser = argparse.ArgumentParser()
+parser.add_argument('-f', default="", dest='ratecard_file', help='Ratecard file in csv format to use')
 
-# Set to match your accounts currency, like USD or EUR
-currency = "EUR"
+cmd = parser.parse_args()
+if cmd.ratecard_file == "":
+    parser.print_help()
+    sys.exit(0)
 
-files =  glob.glob("reports_cost-*.csv")
-rates = []
+print ("Loading ratecard file...")
+newfile = []
+ratecard = []
+with open(cmd.ratecard_file, "r") as csvfile:
+    csvreader = csv.reader(csvfile)
 
-for file in files:
-    print ("Processing file: {}".format(file))
-    data = open(file, "r")
-    c = 0
+    # This skips the first 5 row of the CSV file.
+    for x in range(4):
+        newfile.append(next(csvreader))
+    # Add discount to field list
+    fields = next(csvreader)
+    fields.append("discount")
+    newfile.append(fields)
 
-    first = True
-    for line in data:
-        if not first:
-            #print (line)
-            items = line.split(",")
-            sku = items[13]
-            subscription = items[12]
-            service = items[4]
-            description = items[14]
-            unitcost = items[15]
-            unitcostextra = items[16]
-            #print ("{} - {} {} - {} {}".format(subscription, sku, service, description, unitcost, unitcostextra))
+    for row in csvreader:
+        ratecard.append(row)
 
-            found = False
-            for r in rates:
-                if (r[1] == sku) and (r[0] == subscription):
-                    found = True
+    currency = ratecard[0][3]
 
-            if not found:
-                listpriceurl = "https://itra.oraclecloud.com/itas/.anon/myservices/api/v1/products?partNumber={}".format(sku)
-                hdr = { 'X-Oracle-Accept-CurrencyCode':  currency}
-                req = urllib.request.Request(listpriceurl, headers= hdr)
-                r = urllib.request.urlopen(req).read()
-                cont = json.loads(r.decode('utf-8'))
-                try:
-                    prices = cont["items"][0]["prices"]
-                    PAYG = 0
-                    MFLEX = 0
-                    for p in prices:
-                        print (p)
-                        if float(p["value"]) != 0:
-                            if p["model"] == "PAY_AS_YOU_GO":
-                                PAYG = float(p["value"])
-                            if p["model"] == "MONTHLY_COMMIT":
-                                MFLEX = float(p["value"])
+print ("Getting public rates for currency {}".format(currency))
+url = requests.get("https://apexapps.oracle.com/pls/apex/cetools/api/v1/products/?currencyCode={}".format(currency))
+public_rates_raw = json.loads(url.text)
+public_rates = public_rates_raw["items"]
 
-                    rates.append([subscription, sku, service, description, unitcost, unitcostextra, PAYG, MFLEX])
-                except:
-                    print ("ERROR sku {} nor found".format(sku))
-        else:
-            first = False
+print ("Creating ratecard file with discount specification...")
 
-ratecard = open("ratecard.csv", "w")
-ratecard.write("subscription, sku, service, description, unitcost, unitcostextra, PAYG, MFLEX\n")
-for r in rates:
-    ratecard.write("{},{},{},{},{},{},{},{}\n".format(r[0],r[1],r[2],r[3],r[4],r[5],r[6],r[7]))
+for rate in ratecard:
+    sku = rate[0].split(" ")[0]
+    discount = "n/a"
+    for public_rate in public_rates:
+        if public_rate["partNumber"] == sku:
+            price = public_rate["currencyCodeLocalizations"][0]["prices"][0]["value"]
+            discount =  1-(float(rate[4]) / float(price))
+    rate.append(str(discount))
 
-ratecard.close()
+filenameparts = cmd.ratecard_file.split(".")
+newratefile = filenameparts[0] + "_withDiscount." + filenameparts[1]
+
+with open(newratefile, 'w', newline="") as file:
+    csvwriter = csv.writer(file, quoting=csv.QUOTE_ALL)
+    for l in newfile:
+        csvwriter.writerow(l)
+    for r in ratecard:
+        csvwriter.writerow(r)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
