@@ -44,7 +44,10 @@ for rate in ratecard:
     for public_rate in public_rates:
         if public_rate["partNumber"] == sku:
             price = public_rate["currencyCodeLocalizations"][0]["prices"][0]["value"]
-            discount =  1-(float(rate[4]) / float(price))
+            if float(price) != 0:
+                discount =  1-(float(rate[4]) / float(price))
+            else:
+                discount = 0
     rate.append(str(discount))
 
 filenameparts = cmd.ratecard_file.split(".")
